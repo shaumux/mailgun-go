@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/ensure"
-	"github.com/mailgun/mailgun-go/v3"
+	"github.com/mailgun/mailgun-go"
 	"github.com/pkg/errors"
 )
 

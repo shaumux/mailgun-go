@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/facebookgo/ensure"
-	"github.com/mailgun/mailgun-go/v3"
-	"github.com/mailgun/mailgun-go/v3/events"
+	"github.com/mailgun/mailgun-go"
+	"github.com/mailgun/mailgun-go/events"
 )
 
 func TestEventIteratorGetNext(t *testing.T) {
@@ -63,7 +63,6 @@ func TestEventIteratorGetNext(t *testing.T) {
 func TestEventPoller(t *testing.T) {
 	mg := mailgun.NewMailgun(testDomain, testKey)
 	mg.SetAPIBase(server.URL())
-
 
 	// Very short poll interval
 	it := mg.PollEvents(&mailgun.ListEventOptions{

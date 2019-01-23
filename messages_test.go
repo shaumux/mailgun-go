@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/ensure"
-	"github.com/mailgun/mailgun-go/v3/events"
+	"github.com/mailgun/mailgun-go/events"
 )
 
 const (
