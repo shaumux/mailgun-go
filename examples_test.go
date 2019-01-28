@@ -2,16 +2,21 @@ package mailgun_test
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/mailgun/mailgun-go"
+	"github.com/mailgun/mailgun-go/events"
 )
 
 func ExampleMailgunImpl_ValidateEmail() {
-	v := mailgun.NewEmailValidator("my_public_api_key")
+	v := mailgun.NewEmailValidator("my_public_validation_api_key")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -31,7 +36,7 @@ func ExampleMailgunImpl_ValidateEmail() {
 }
 
 func ExampleMailgunImpl_ParseAddresses() {
-	v := mailgun.NewEmailValidator("my_public_api_key")
+	v := mailgun.NewEmailValidator("my_public_validation_api_key")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -132,14 +137,57 @@ func ExampleMailgunImpl_GetRoutes() {
 	}
 }
 
-func ExampleMailgunImpl_UpdateRoute() {
-	mg := mailgun.NewMailgun("example.com", "my_api_key")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	_, err := mg.UpdateRoute(ctx, "route-id-here", mailgun.Route{
-		Priority: 2,
-	})
+func ExampleMailgunImpl_VerifyWebhookSignature() {
+	// Create an instance of the Mailgun Client
+	mg, err := mailgun.NewMailgunFromEnv()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("mailgun error: %s\n", err)
+		os.Exit(1)
+	}
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		var payload mailgun.WebhookPayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			fmt.Printf("decode JSON error: %s", err)
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+
+		verified, err := mg.VerifyWebhookSignature(payload.Signature)
+		if err != nil {
+			fmt.Printf("verify error: %s\n", err)
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+
+		if !verified {
+			w.WriteHeader(http.StatusNotAcceptable)
+			fmt.Printf("failed verification %+v\n", payload.Signature)
+			return
+		}
+
+		fmt.Printf("Verified Signature\n")
+
+		// Parse the raw event to extract the
+
+		e, err := mailgun.ParseEvent(payload.EventData)
+		if err != nil {
+			fmt.Printf("parse event error: %s\n", err)
+			return
+		}
+
+		switch event := e.(type) {
+		case *events.Accepted:
+			fmt.Printf("Accepted: auth: %t\n", event.Flags.IsAuthenticated)
+		case *events.Delivered:
+			fmt.Printf("Delivered transport: %s\n", event.Envelope.Transport)
+		}
+	})
+
+	fmt.Println("Running...")
+	if err := http.ListenAndServe(":9090", nil); err != nil {
+		fmt.Printf("serve error: %s\n", err)
+		os.Exit(1)
 	}
 }

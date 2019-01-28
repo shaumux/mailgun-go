@@ -27,7 +27,7 @@ func CreateComplaint(domain, apiKey string) error {
 	return mg.CreateComplaint(ctx, "bob@example.com")
 }
 
-func AddDomain(domain, apiKey string) error {
+func AddDomain(domain, apiKey string) (mailgun.DomainResponse, error) {
 	mg := mailgun.NewMailgun(domain, apiKey)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -136,7 +136,7 @@ func CreateCredential(domain, apiKey string) error {
 	return mg.CreateCredential(ctx, "alice@example.com", "secret")
 }
 
-func CreateDomain(domain, apiKey string) error {
+func CreateDomain(domain, apiKey string) (mailgun.DomainResponse, error) {
 	mg := mailgun.NewMailgun(domain, apiKey)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -400,7 +400,7 @@ func ListCredentials(domain, apiKey string) ([]mailgun.Credential, error) {
 	return result, nil
 }
 
-func GetDomain(domain, apiKey string) (mailgun.Domain, []mailgun.DNSRecord, []mailgun.DNSRecord, error) {
+func GetDomain(domain, apiKey string) (mailgun.DomainResponse, error) {
 	mg := mailgun.NewMailgun(domain, apiKey)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -883,4 +883,14 @@ func UpdateWebhook(domain, apiKey string) error {
 	defer cancel()
 
 	return mg.UpdateWebhook(ctx, "clicked", []string{"https://your_domain.com/clicked"})
+}
+
+func VerifyWebhookSignature(domain, apiKey, timestamp, token, signature string) (bool, error) {
+	mg := mailgun.NewMailgun(domain, apiKey)
+
+	return mg.VerifyWebhookSignature(mailgun.Signature{
+		TimeStamp: timestamp,
+		Token:     token,
+		Signature: signature,
+	})
 }
