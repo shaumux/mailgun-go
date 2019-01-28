@@ -26,10 +26,8 @@ import (
 // (https://app.mailgun.com/app/domains)
 var yourDomain string = "your-domain-name" // e.g. mg.yourcompany.com
 
-// The API Keys are found in your Account Menu, under "Settings":
+// You can find the Private API Key in your Account Menu, under "Settings":
 // (https://app.mailgun.com/app/account/security)
-
-// starts with "key-"
 var privateAPIKey string = "your-private-key"
 
 
@@ -73,7 +71,9 @@ import (
 )
 
 func main() {
-    mg := mailgun.NewMailgun("your-domain.com", "your-api-key")
+    // You can find the Private API Key in your Account Menu, under "Settings":
+    // (https://app.mailgun.com/app/account/security)
+    mg := mailgun.NewMailgun("your-domain.com", "your-private-key")
 
 	it := mg.ListEvents(&mailgun.ListEventOptions{Limit: 100})
 
@@ -126,7 +126,9 @@ import (
 )
 
 func main() {
-    mg := mailgun.NewMailgun("your-domain.com", "your-api-key")
+    // You can find the Private API Key in your Account Menu, under "Settings":
+    // (https://app.mailgun.com/app/account/security)
+    mg := mailgun.NewMailgun("your-domain.com", "your-private-key")
 
 	begin := time.Now().Add(time.Second * -3)
 
@@ -165,9 +167,11 @@ import (
 )
 
 // If your plan does not include email validations but you have an account,
-// use your public api key (starts with "pubkey-"). If your plan does include
-// email validations, use your private api key (starts with "key-")
-var apiKey string = "your-key"
+// use your Public Validation api key. If your plan does include email validations,
+// use your Private API key. You can find both the Private and
+// Public Validation API Keys in your Account Menu, under "Settings":
+// (https://app.mailgun.com/app/account/security)
+var apiKey string = "your-api-key"
 
 func main() {
     // Create an instance of the Validator
@@ -184,16 +188,91 @@ func main() {
 }
 ```
 
+## Webhook Handling
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "os"
+    "time"
+
+    "github.com/mailgun/mailgun-go/v3"
+    "github.com/mailgun/mailgun-go/v3/events"
+)
+
+func main() {
+
+    // You can find the Private API Key in your Account Menu, under "Settings":
+    // (https://app.mailgun.com/app/account/security)
+    mg := mailgun.NewMailgun("your-domain.com", "private-api-key")
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		var payload mailgun.WebhookPayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			fmt.Printf("decode JSON error: %s", err)
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+
+		verified, err := mg.VerifyWebhookSignature(payload.Signature)
+		if err != nil {
+			fmt.Printf("verify error: %s\n", err)
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+
+		if !verified {
+			w.WriteHeader(http.StatusNotAcceptable)
+			fmt.Printf("failed verification %+v\n", payload.Signature)
+			return
+		}
+
+		fmt.Printf("Verified Signature\n")
+
+		// Parse the event provided by the webhook payload
+		e, err := mailgun.ParseEvent(payload.EventData)
+		if err != nil {
+			fmt.Printf("parse event error: %s\n", err)
+			return
+		}
+
+		switch event := e.(type) {
+		case *events.Accepted:
+			fmt.Printf("Accepted: auth: %t\n", event.Flags.IsAuthenticated)
+		case *events.Delivered:
+			fmt.Printf("Delivered transport: %s\n", event.Envelope.Transport)
+		}
+	})
+
+	fmt.Println("Serve on :9090...")
+	if err := http.ListenAndServe(":9090", nil); err != nil {
+		fmt.Printf("serve error: %s\n", err)
+		os.Exit(1)
+	}
+}
+```
 The official mailgun documentation includes examples using this library. Go
 [here](https://documentation.mailgun.com/en/latest/api_reference.html#api-reference)
 and click on the "Go" button at the top of the page.
 
 ## Installation
 
-Install the go library
-
+If you are using [golang modules](https://github.com/golang/go/wiki/Modules) make sure you
+include the `/v3` at the end of your import paths
 ```bash
 $ go get github.com/mailgun/mailgun-go/v3
+```
+
+If you are **not** using golang modules, you can drop the `/v3` at the end of the import path.
+As long as you are using the latest 1.10 or 1.11 golang release, import paths that end in `/v3`
+in your code should work fine even if you do not have golang modules enabled for your project.
+```bash
+$ go get github.com/mailgun/mailgun-go
 ```
 
 ## Testing
@@ -203,8 +282,8 @@ $ go get github.com/mailgun/mailgun-go/v3
 To run the tests various environment variables must be set. These are:
 
 * `MG_DOMAIN` is the domain name - this is a value registered in the Mailgun admin interface.
-* `MG_PUBLIC_API_KEY` is the public API key - you can get this value from the Mailgun admin interface.
-* `MG_API_KEY` is the (private) API key - you can get this value from the Mailgun admin interface.
+* `MG_PUBLIC_API_KEY` is the Public Validation API key - you can get this value from the Mailgun [security page](https://app.mailgun.com/app/account/security)
+* `MG_API_KEY` is the Private API key - you can get this value from the Mailgun [security page](https://app.mailgun.com/app/account/security)
 * `MG_EMAIL_TO` is the email address used in various sending tests.
 
 and finally
